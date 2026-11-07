@@ -99,11 +99,57 @@ OPENWRT_FORCE=1 bash /home/user/src/luci-app-lucky/scripts/build-sdk.sh "$PWD" \
 
 构建 LuCI 包时，`luci-i18n-lucky-zh-cn` 会由 LuCI 构建系统生成。
 
-核心包从 GitHub Releases 下载指定版本资源，使用 `PKG_HASH:=skip`，更新版本无需维护架构哈希表。
+核心包从 `https://release.66666.host/v<版本>/<版本>_wanji/` 下载指定版本的玩机版（wanji）资源，使用 `PKG_HASH:=skip`，更新版本无需维护架构哈希表。构建前可使用同目录的 `checksums.txt` 校验下载文件。预编译核心禁用 SDK 的 strip 处理，以保留上游程序的完整内容。
 
 ## 自动检查
 
 GitHub Actions 会执行 JSON、JavaScript、Shell 和翻译检查。21.02–25.12 使用官方 OpenWrt SDK Action，19.07 使用官方 SDK 压缩包单独构建；矩阵中的 ARM64 只是代表性兼容验证，不是可直接发布到全部 `aarch64_*` 设备的通用核心包。发布其他设备包时，仍应在该设备对应 SDK 中完成一次构建验证。
+
+## GitHub Actions 每周自动构建
+
+`.github/workflows/weekly-a53.yml` 专门为 **OpenWrt 23.05 / aarch64_cortex-a53**
+生成 Lucky 核心、LuCI 界面和简体中文语言包三个 IPK。默认每周一北京时间
+**06:17** 运行，也可以在 Actions 中选择 **Weekly Lucky IPK (23.05 / aarch64_cortex-a53)**，
+点击 **Run workflow** 手动执行。
+
+每次构建会重新检出原项目 `gdy666/luci-app-lucky` 的 `main` 最新提交，然后从
+`https://release.66666.host/` 按 `vX.Y.Z` 数字版本号查找最新稳定版的玩机版（wanji）
+Linux ARM64 核心。上游源码只写入本次构建的工作目录，不会自动合并或覆盖
+fork 的分支，因此本仓库的定时构建配置可以独立维护。
+
+准备脚本会核对发布目录的 `checksums.txt`，检查压缩包路径与 ELF 架构，
+并将本次选中的版本、下载地址和实际 SHA-256 写入构建副本的 `lucky/Makefile`。
+核心禁用 strip；打包结束后再次核对包内程序的 SHA-256，确保与上游原文件一致。
+如果最新版玩机目录缺少 ARM64 文件、校验失败或原项目打包结构发生不兼容变化，
+本次任务会失败，不发布不完整的产物，也不覆盖之前成功的 Release。
+
+SDK 固定为已验证的官方 **OpenWrt 23.05.6** 镜像 digest，不随核心版本升级到
+其他 OpenWrt 分支。每次成功构建都会创建一个独立的 `weekly-23.05-a53-...`
+Release，并将其标记为 Latest。附件包含三个 IPK、`SHA256SUMS`、
+`BUILD-INFO.json` 和安装说明。源码提交、核心下载地址、SDK 镜像和各包版本
+均可在构建记录中追溯；失败日志保存在对应运行的 Actions artifacts 中。
+
+首次启用：
+
+1. 将本次自动构建相关文件提交、推送并合并到 fork 的默认分支（当前为 `main`）。
+2. 打开 fork 的 **Actions**，按页面提示启用工作流。
+3. 选择上述每周构建工作流，在 `main` 上执行一次 **Run workflow**。
+4. 构建通过后，在本仓库 **Releases → Latest** 下载三个 IPK。
+
+发布 job 使用 GitHub 自动提供的 `GITHUB_TOKEN` 和 `contents: write` 权限，
+无需额外配置个人访问令牌。构建 job 仅有读取权限；从非默认分支手动运行时，
+只生成 Actions artifacts，不发布正式 Release。
+
+GitHub 定时任务只在默认分支上运行，可能因平台负载延迟；公开仓库连续
+60 天无活动时，GitHub 可能停用定时工作流，需要重新启用。
+参见 [GitHub 的 schedule 说明](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)。
+
+发布流程的离线回归检查：
+
+```bash
+python3 scripts/test-weekly-build.py
+bash -n scripts/build-weekly-sdk.sh
+```
 
 ## 本地一次构建全部支持架构
 
@@ -154,9 +200,9 @@ pwsh -File .\scripts\build-all-local.ps1 -RemoveImages
 本次实际构建使用的精确镜像标签，不执行全局 Docker 清理。建议先保持 `Jobs=2`；
 并行度过高会同时占用大量内存、磁盘 I/O 和网络带宽。
 
-这里的“全部架构”指 OpenWrt 官方软件包仓库中、同时被 Lucky 上游二进制支持
-的 package architecture。上游没有提供 ARMv4/FA526、`armeb`、LoongArch、
-MIPS64、PowerPC 等二进制，因此这些 OpenWrt 架构不会生成不可运行的空包。
+这里的“全部架构”指 OpenWrt 官方软件包仓库中、同时被 Lucky 二进制和本项目
+打包规则支持的 package architecture。当前打包规则不覆盖 ARMv4/FA526、
+`armeb`、LoongArch、MIPS64、PowerPC 等架构，因此这些架构不在构建矩阵中。
 特别是 Gemini 的 `arm_fa526` 属于 ARMv4，不能用 ARMv5 包冒充。架构清单集中
 维护在 `scripts/build-matrix.json`，静态检查会拒绝重复、无效或意外缺失的条目。
 

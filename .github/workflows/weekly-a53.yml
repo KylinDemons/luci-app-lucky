@@ -1,0 +1,113 @@
+name: Weekly Lucky IPK (23.05 / aarch64_cortex-a53)
+
+on:
+  schedule:
+    # Monday 06:17 Asia/Shanghai = Sunday 22:17 UTC.
+    - cron: '17 22 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-lucky-23.05-aarch64-cortex-a53
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    outputs:
+      core_version: ${{ steps.prepare.outputs.core_version }}
+    env:
+      WEEKLY_OUTPUT: ${{ github.workspace }}/weekly-output
+    steps:
+      - name: Check out this fork's automation
+        uses: actions/checkout@v4
+        with:
+          path: automation
+          persist-credentials: false
+
+      - name: Test release selection and package validation
+        run: python3 automation/scripts/test-weekly-build.py
+
+      - name: Check out the original project's latest source
+        uses: actions/checkout@v4
+        with:
+          repository: gdy666/luci-app-lucky
+          ref: main
+          path: source
+          persist-credentials: false
+
+      - name: Select and verify the latest stable Wanji ARM64 core
+        id: prepare
+        run: |
+          python3 automation/scripts/weekly-build.py prepare \
+            --source "$GITHUB_WORKSPACE/source" --output "$WEEKLY_OUTPUT"
+
+      - name: Build the three IPKs with the official 23.05.6 SDK
+        env:
+          LUCKY_MAKE_JOBS: '2'
+          SDK_IMAGE: ${{ steps.prepare.outputs.sdk_image }}
+        run: |
+          docker pull --platform linux/amd64 "$SDK_IMAGE"
+          docker run --rm --platform linux/amd64 \
+            --env LUCKY_MAKE_JOBS \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/automation,target=/work/automation,readonly" \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/source,target=/work/source,readonly" \
+            --mount "type=bind,source=$WEEKLY_OUTPUT,target=/work/output" \
+            "$SDK_IMAGE" /bin/bash -lc 'exec bash /work/automation/scripts/build-weekly-sdk.sh' \
+            > "$WEEKLY_OUTPUT/logs/build.log" 2>&1
+
+      - name: Verify and collect release files
+        run: |
+          python3 automation/scripts/weekly-build.py collect --output "$WEEKLY_OUTPUT"
+          cat "$WEEKLY_OUTPUT/release/RELEASE-NOTES.txt" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload verified packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-lucky-ipk
+          overwrite: true
+          if-no-files-found: error
+          retention-days: 30
+          path: ${{ env.WEEKLY_OUTPUT }}/release/
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-lucky-logs
+          overwrite: true
+          if-no-files-found: warn
+          retention-days: 14
+          path: ${{ env.WEEKLY_OUTPUT }}/logs/
+
+  publish:
+    needs: build
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: weekly-lucky-ipk
+          path: release
+
+      - name: Publish this week's packages to GitHub Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: weekly-23.05-a53-${{ github.run_id }}-${{ github.run_attempt }}
+          RELEASE_TITLE: Lucky ${{ needs.build.outputs.core_version }} wanji / OpenWrt 23.05 aarch64_cortex-a53
+        run: |
+          cd release
+          sha256sum --check SHA256SUMS
+          gh release create "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "$RELEASE_TITLE" --draft \
+            --notes-file RELEASE-NOTES.txt \
+            ./*.ipk ./SHA256SUMS ./BUILD-INFO.json ./RELEASE-NOTES.txt
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --draft=false --latest

@@ -3,7 +3,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=lucky
-PKG_VERSION:=3.5.0
+PKG_VERSION:=3.7.1
 PKG_RELEASE:=1
 
 PKG_LICENSE:=MIT
@@ -48,10 +48,13 @@ ifeq ($(ARCH),mipsel)
   endif
 endif
 
-PKG_SOURCE:=lucky_$(PKG_VERSION)_Linux_$(LUCKY_ARCH).tar.gz
-PKG_SOURCE_URL:=https://github.com/gdy666/lucky/releases/download/v$(PKG_VERSION)
+PKG_SOURCE:=lucky_$(PKG_VERSION)_Linux_$(LUCKY_ARCH)_wanji.tar.gz
+PKG_SOURCE_URL:=https://release.66666.host/v$(PKG_VERSION)/$(PKG_VERSION)_wanji
 PKG_HASH:=skip
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
+
+# Preserve the packed upstream executable, including its appended data.
+RSTRIP:=:
 
 include $(INCLUDE_DIR)/package.mk
 
