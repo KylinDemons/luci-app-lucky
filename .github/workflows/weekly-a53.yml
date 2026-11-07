@@ -19,6 +19,7 @@ jobs:
     timeout-minutes: 90
     outputs:
       core_version: ${{ steps.prepare.outputs.core_version }}
+      release_notes: ${{ steps.collect.outputs.release_notes }}
     env:
       WEEKLY_OUTPUT: ${{ github.workspace }}/weekly-output
     steps:
@@ -60,9 +61,16 @@ jobs:
             > "$WEEKLY_OUTPUT/logs/build.log" 2>&1
 
       - name: Verify and collect release files
+        id: collect
         run: |
           python3 automation/scripts/weekly-build.py collect --output "$WEEKLY_OUTPUT"
-          cat "$WEEKLY_OUTPUT/release/RELEASE-NOTES.txt" >> "$GITHUB_STEP_SUMMARY"
+          weekly_notes_file="$WEEKLY_OUTPUT/RELEASE-NOTES.txt"
+          cat "$weekly_notes_file" >> "$GITHUB_STEP_SUMMARY"
+          {
+            printf '%s\n' 'release_notes<<LUCKY_RELEASE_NOTES_EOF'
+            cat "$weekly_notes_file"
+            printf '%s\n' 'LUCKY_RELEASE_NOTES_EOF'
+          } >> "$GITHUB_OUTPUT"
 
       - name: Upload verified packages
         uses: actions/upload-artifact@v4
@@ -100,14 +108,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: weekly-23.05-a53-${{ github.run_id }}-${{ github.run_attempt }}
-          RELEASE_TITLE: Lucky ${{ needs.build.outputs.core_version }} wanji / OpenWrt 23.05 aarch64_cortex-a53
+          RELEASE_TITLE: Lucky ${{ needs.build.outputs.core_version }} 万吉版 / OpenWrt 23.05 aarch64_cortex-a53
+          RELEASE_NOTES: ${{ needs.build.outputs.release_notes }}
         run: |
           cd release
           sha256sum --check SHA256SUMS
+          test -n "$RELEASE_NOTES"
+          printf '%s\n' "$RELEASE_NOTES" > "$RUNNER_TEMP/lucky-release-notes.txt"
           gh release create "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "$RELEASE_TITLE" --draft \
-            --notes-file RELEASE-NOTES.txt \
-            ./*.ipk ./SHA256SUMS ./BUILD-INFO.json ./RELEASE-NOTES.txt
+            --notes-file "$RUNNER_TEMP/lucky-release-notes.txt" \
+            ./*.ipk ./SHA256SUMS
           gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
             --draft=false --latest

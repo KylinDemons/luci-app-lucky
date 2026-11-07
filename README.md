@@ -49,7 +49,7 @@ LuCI 支持整目录 ZIP 备份与完整替换还原（含隐藏文件和子目�
 参见 [构建说明](BUILDING.md) 和 [贡献说明](CONTRIBUTING.md)。
 
 Fork 可启用 GitHub Actions 每周构建：自动读取原项目最新源码和发布站最新
-玩机版 ARM64 核心，为 OpenWrt 23.05 / `aarch64_cortex-a53` 生成三个 IPK，
+万吉版 ARM64 核心，为 OpenWrt 23.05 / `aarch64_cortex-a53` 生成三个 IPK，
 并发布到本仓库 Releases。启用方法和运行时间见构建说明中的“GitHub Actions 每周自动构建”。
 
 ## 界面预览

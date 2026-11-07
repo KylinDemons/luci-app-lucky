@@ -324,21 +324,19 @@ def collect(output: Path) -> None:
     if revisions.is_file():
         manifest["sdk_feeds"] = dict(line.split("\t", 1) for line in revisions.read_text().splitlines())
     manifest["verification"] = "metadata, required files, permissions, ELF architecture and upstream binary identity passed"
-    (release / "BUILD-INFO.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    (output / "logs/BUILD-INFO.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     notes = (
-        f"Lucky {manifest['core']['version']} 玩机版（wanji）\n\n"
+        f"Lucky {manifest['core']['version']} 万吉版（wanji）\n\n"
         "目标：OpenWrt 23.05 / aarch64_cortex-a53；官方 SDK：23.05.6。\n\n"
         f"LuCI / 服务脚本源码：{manifest['upstream_commit_url']}\n"
         f"核心二进制：{manifest['core']['url']}\n\n"
-        "包含 Lucky 核心、LuCI 界面和简体中文语言包。核心未做 strip，已核对发布站 SHA-256，"
-        "并确认 IPK 内程序与下载的上游程序逐字节一致。未在真实路由器上验收。\n\n"
+        "包含 Lucky 核心、LuCI 界面和简体中文语言包。\n\n"
         "将三个 IPK 上传至路由器 /tmp 后，执行：\n\n"
         "```sh\nopkg install /tmp/lucky_*.ipk /tmp/luci-app-lucky_*.ipk /tmp/luci-i18n-lucky-zh-cn_*.ipk\n```\n\n"
-        "若已安装相同版本号的 LuCI 包，可对界面和语言包使用 --force-reinstall。"
-        "具体源码提交、SDK 镜像、包版本和校验值见 BUILD-INFO.json / SHA256SUMS。\n"
+        "若已安装相同版本号的 LuCI 包，可对界面和语言包使用 --force-reinstall。\n"
     )
-    (release / "RELEASE-NOTES.txt").write_text(notes, encoding="utf-8")
-    checksums = "".join(f"{sha256(file)}  {file.name}\n" for file in sorted(release.iterdir()))
+    (output / "RELEASE-NOTES.txt").write_text(notes, encoding="utf-8")
+    checksums = "".join(f"{item['sha256']}  {item['file']}\n" for item in records)
     (release / "SHA256SUMS").write_text(checksums, encoding="utf-8")
     print("Verified and collected:", ", ".join(item["file"] for item in records))
 

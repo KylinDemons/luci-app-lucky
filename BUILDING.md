@@ -99,7 +99,7 @@ OPENWRT_FORCE=1 bash /home/user/src/luci-app-lucky/scripts/build-sdk.sh "$PWD" \
 
 构建 LuCI 包时，`luci-i18n-lucky-zh-cn` 会由 LuCI 构建系统生成。
 
-核心包从 `https://release.66666.host/v<版本>/<版本>_wanji/` 下载指定版本的玩机版（wanji）资源，使用 `PKG_HASH:=skip`，更新版本无需维护架构哈希表。构建前可使用同目录的 `checksums.txt` 校验下载文件。预编译核心禁用 SDK 的 strip 处理，以保留上游程序的完整内容。
+核心包从 `https://release.66666.host/v<版本>/<版本>_wanji/` 下载指定版本的万吉版（wanji）资源，使用 `PKG_HASH:=skip`，更新版本无需维护架构哈希表。构建前可使用同目录的 `checksums.txt` 校验下载文件。预编译核心禁用 SDK 的 strip 处理，以保留上游程序的完整内容。
 
 ## 自动检查
 
@@ -113,21 +113,20 @@ GitHub Actions 会执行 JSON、JavaScript、Shell 和翻译检查。21.02–25.
 点击 **Run workflow** 手动执行。
 
 每次构建会重新检出原项目 `gdy666/luci-app-lucky` 的 `main` 最新提交，然后从
-`https://release.66666.host/` 按 `vX.Y.Z` 数字版本号查找最新稳定版的玩机版（wanji）
+`https://release.66666.host/` 按 `vX.Y.Z` 数字版本号查找最新稳定的万吉版（wanji）
 Linux ARM64 核心。上游源码只写入本次构建的工作目录，不会自动合并或覆盖
 fork 的分支，因此本仓库的定时构建配置可以独立维护。
 
 准备脚本会核对发布目录的 `checksums.txt`，检查压缩包路径与 ELF 架构，
 并将本次选中的版本、下载地址和实际 SHA-256 写入构建副本的 `lucky/Makefile`。
 核心禁用 strip；打包结束后再次核对包内程序的 SHA-256，确保与上游原文件一致。
-如果最新版玩机目录缺少 ARM64 文件、校验失败或原项目打包结构发生不兼容变化，
+如果最新版万吉目录缺少 ARM64 文件、校验失败或原项目打包结构发生不兼容变化，
 本次任务会失败，不发布不完整的产物，也不覆盖之前成功的 Release。
 
 SDK 固定为已验证的官方 **OpenWrt 23.05.6** 镜像 digest，不随核心版本升级到
 其他 OpenWrt 分支。每次成功构建都会创建一个独立的 `weekly-23.05-a53-...`
-Release，并将其标记为 Latest。附件包含三个 IPK、`SHA256SUMS`、
-`BUILD-INFO.json` 和安装说明。源码提交、核心下载地址、SDK 镜像和各包版本
-均可在构建记录中追溯；失败日志保存在对应运行的 Actions artifacts 中。
+Release，并将其标记为 Latest。上传附件为三个 IPK 和 `SHA256SUMS`，安装说明写在
+Release 正文。构建记录 `BUILD-INFO.json` 和日志保存在对应运行的 Actions 日志附件中。
 
 首次启用：
 

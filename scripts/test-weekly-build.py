@@ -164,10 +164,23 @@ class WeeklyTests(unittest.TestCase):
             root = Path(temp)
             self.packages(root)
             weekly.collect(root)
-            self.assertEqual(len(list((root / "release").glob("*.ipk"))), 3)
-            for line in (root / "release/SHA256SUMS").read_text().splitlines():
+            release = root / "release"
+            expected_packages = {
+                "lucky_3.7.1-1_aarch64_cortex-a53.ipk",
+                "luci-app-lucky_3.0.0_all.ipk",
+                "luci-i18n-lucky-zh-cn_123_all.ipk",
+            }
+            self.assertEqual({file.name for file in release.iterdir()}, expected_packages | {"SHA256SUMS"})
+            checksum_names = []
+            for line in (release / "SHA256SUMS").read_text().splitlines():
                 digest, name = line.split("  ")
-                self.assertEqual(weekly.sha256(root / "release" / name), digest)
+                checksum_names.append(name)
+                self.assertEqual(weekly.sha256(release / name), digest)
+            self.assertCountEqual(checksum_names, expected_packages)
+            notes = (root / "RELEASE-NOTES.txt").read_text(encoding="utf-8")
+            self.assertIn("Lucky 3.7.1 万吉版（wanji）", notes)
+            self.assertNotIn("逐字节一致", notes)
+            self.assertNotIn("BUILD-INFO.json", notes)
 
     def test_modified_core_wrong_arch_and_missing_translation_block_release(self):
         for options in ({"changed_core": True}, {"wrong_arch": True}, {"omit_translation": True}):
