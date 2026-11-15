@@ -145,9 +145,6 @@ msgstr "Lucky 版本"
 msgid "New password:"
 msgstr "新密码："
 
-msgid "Not installed"
-msgstr "未安装"
-
 msgid "Package architecture"
 msgstr "软件包架构"
 
